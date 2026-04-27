@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "pc-status-mobile",
-    "slug": "pc-status-mobile",
+    "name": "pc-status-app",
+    "slug": "pc-status-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
