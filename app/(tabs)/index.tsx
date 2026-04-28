@@ -14,6 +14,7 @@ interface PcStatus {
   ram_used: number | null;
   ram_total: number | null;
   temperature: number | null;
+  processes: { name: string; memory: number }[] | null;
 }
 
 export default function DesktopScreen() {
@@ -30,7 +31,7 @@ export default function DesktopScreen() {
     const { data } = await supabase
       .from("pc_online")
       .select(
-        "last_seen, pc_name, cpu_percent, ram_percent, ram_used, ram_total, temperature",
+        "last_seen, pc_name, cpu_percent, ram_percent, ram_used, ram_total, temperature, processes",
       )
       .eq("user_id", user.id)
       .single();
@@ -40,7 +41,10 @@ export default function DesktopScreen() {
       const now = new Date();
       const diffSeconds = (now.getTime() - lastSeen.getTime()) / 1000;
       setIsOnline(diffSeconds < 6);
-      setStatus(data);
+      setStatus({
+        ...data,
+        processes: data.processes ? JSON.parse(data.processes) : null,
+      });
     }
   };
 
@@ -57,8 +61,12 @@ export default function DesktopScreen() {
       `정말 PC를 ${labels[command]}하시겠습니까?`,
       [
         { text: "취소", style: "cancel" },
-        { text: labels[command], style: "destructive", onPress: () => sendCommand(command) },
-      ]
+        {
+          text: labels[command],
+          style: "destructive",
+          onPress: () => sendCommand(command),
+        },
+      ],
     );
   };
 
@@ -91,47 +99,73 @@ export default function DesktopScreen() {
     setLoadingCmd(null);
   };
 
+  if (!isOnline) {
+    return (
+      <SafeAreaView style={styles.containerCentered}>
+        <Image
+          source={require("../../assets/images/desktop_image.png")}
+          style={{ width: 180, height: 180 }}
+        />
+        <View style={styles.statusBadge}>
+          <View style={[styles.statusDot, styles.dotOffline]} />
+          <Text style={styles.statusText}>연결 끊김</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <View
-        style={[
-          styles.statusContainer,
-          !isOnline && styles.statusContainerOffline,
-        ]}
-      >
+      <View style={styles.statusContainer}>
         <View style={styles.checkconn}>
           <Image
-            source={require("../../assets/images/desktop_image.png")}
+            source={require("../../assets/images/desktop_image2.png")}
             style={{ width: 180, height: 180 }}
           />
-          <Text style={styles.subtitle}>
-            {isOnline ? "🟢 PC 연결 됨" : "🔴 PC 연결 끊김"}
-          </Text>
+          <View style={styles.statusBadge}>
+            <View style={[styles.statusDot, styles.dotOnline]} />
+            <Text style={styles.statusText}>연결됨</Text>
+          </View>
         </View>
 
-        <View style={styles.checkHardware}>
-          {isOnline && status && (
-            <>
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={styles.pcName}
-              >
-                PC: {status.pc_name}
-              </Text>
-              <Text>CPU: {status.cpu_percent?.toFixed(1)}%</Text>
-              <Text>온도: {status.temperature?.toFixed(1)}°C</Text>
-              <Text>
-                RAM: {status.ram_used?.toFixed(1)} /{" "}
-                {status.ram_total?.toFixed(1)} GB
-              </Text>
-              <Text>RAM 사용률: {status.ram_percent?.toFixed(1)}%</Text>
-            </>
-          )}
-        </View>
+        {status && (
+          <View style={styles.checkHardware}>
+            <Text numberOfLines={1} ellipsizeMode="tail" style={styles.pcName}>
+              PC: {status.pc_name}
+            </Text>
+            <Text>CPU: {status.cpu_percent?.toFixed(1)}%</Text>
+            <Text>온도: {status.temperature?.toFixed(1)}°C</Text>
+            <Text>
+              RAM: {status.ram_used?.toFixed(1)} /{" "}
+              {status.ram_total?.toFixed(1)} GB
+            </Text>
+            <Text>RAM 사용률: {status.ram_percent?.toFixed(1)}%</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.grayLine} />
+
+      {status?.processes && (
+        <>
+          <View style={styles.processesContainer}>
+            <Text style={styles.processesTitle}>실행 중인 프로세스</Text>
+            {status.processes.map((p, i) => (
+              <View
+                key={i}
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Text>{p.name}</Text>
+                <Text>{p.memory} MB</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.grayLine} />
+        </>
+      )}
 
       <View style={styles.skillContainer}>
         <PCButton
@@ -174,12 +208,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 25,
     backgroundColor: "#ffffff",
   },
+  containerCentered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
+  },
   statusContainer: {
     flexDirection: "row",
     gap: 10,
-  },
-  statusContainerOffline: {
-    justifyContent: "center",
   },
   checkconn: {
     alignItems: "center",
@@ -187,7 +224,7 @@ const styles = StyleSheet.create({
   },
   checkHardware: {
     justifyContent: "space-between",
-    marginBottom: 25,
+    // marginBottom: 10,
     marginTop: 40,
     gap: 15,
   },
@@ -195,19 +232,41 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  subtitle: {
-    fontSize: 14,
-    textAlign: "center",
-    color: "#666",
-    marginBottom: 25,
-  },
   pcName: {
     maxWidth: 140,
+  },
+  processesContainer: {
+    gap: 5,
+    paddingHorizontal: 5,
+  },
+  processesTitle: {
+    fontWeight: "500",
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 10,
+  },
+  dotOnline: {
+    backgroundColor: "#22C55E",
+  },
+  dotOffline: {
+    backgroundColor: "#9CA3AF",
+  },
+  statusText: {
+    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "500",
   },
   grayLine: {
     width: "100%",
     height: 1,
     backgroundColor: "#DEDEDE",
-    marginVertical: 10,
+    marginVertical: 25,
   },
 });

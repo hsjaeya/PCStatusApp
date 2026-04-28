@@ -15,13 +15,13 @@ export default function Settings() {
       CommonActions.reset({
         index: 0,
         routes: [{ name: "index" }],
-      })
+      }),
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>설정</Text>
+      {/* <Text style={styles.title}>설정</Text> */}
 
       <TouchableOpacity style={styles.logoutButton} onPress={logout}>
         <Text style={styles.logoutText}>로그아웃</Text>
@@ -34,7 +34,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 30,
-    backgroundColor: "#f5f5f5",
+    // backgroundColor: "#f5f5f5",
+    backgroundColor: "#fff",
   },
   title: {
     fontSize: 22,
